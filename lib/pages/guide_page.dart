@@ -348,16 +348,28 @@ class _SpotChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // route 查詢回的目的地：點卡片直接開步行導航
+    final isDestination = spot.category == '目的地';
     final tint = spot.isFood ? Colors.deepOrange : theme.colorScheme.primary;
     return Card(
       margin: const EdgeInsets.only(top: 2, bottom: 4),
       child: ListTile(
         dense: true,
-        leading: Icon(spot.isFood ? Icons.restaurant : Icons.place, color: tint),
+        leading: Icon(
+          isDestination
+              ? Icons.directions_walk
+              : (spot.isFood ? Icons.restaurant : Icons.place),
+          color: tint,
+        ),
         title: Text(spot.name),
-        subtitle: Text(spot.distanceLabel),
-        trailing: const Icon(Icons.map_outlined, size: 20),
-        onTap: () => openSpotInMaps(context, spot),
+        subtitle: Text(isDestination
+            ? (spot.description.isNotEmpty ? spot.description : '目的地')
+            : spot.distanceLabel),
+        trailing: Icon(
+            isDestination ? Icons.navigation : Icons.map_outlined, size: 20),
+        onTap: () => isDestination
+            ? openDirections(context, spot)
+            : openSpotInMaps(context, spot),
       ),
     );
   }

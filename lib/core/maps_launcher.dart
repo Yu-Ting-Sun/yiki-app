@@ -19,3 +19,18 @@ Future<void> openSpotInMaps(BuildContext context, Spot s) async {
   } catch (_) {}
   messenger.showSnackBar(const SnackBar(content: Text('無法開啟地圖 App')));
 }
+
+/// 開 Google 地圖「步行導航」到目的地（從目前位置起算路線）。
+Future<void> openDirections(BuildContext context, Spot s) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final nav = Uri.parse('google.navigation:q=${s.lat},${s.lng}&mode=w');
+  final web = Uri.parse('https://www.google.com/maps/dir/?api=1'
+      '&destination=${s.lat}%2C${s.lng}&travelmode=walking');
+  try {
+    if (await launchUrl(nav)) return;
+  } catch (_) {}
+  try {
+    if (await launchUrl(web, mode: LaunchMode.externalApplication)) return;
+  } catch (_) {}
+  messenger.showSnackBar(const SnackBar(content: Text('無法開啟導航')));
+}
