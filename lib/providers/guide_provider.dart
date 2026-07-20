@@ -32,16 +32,28 @@ class GuideReply {
       );
 }
 
-/// 問小憶。lat/lng 是目前位置（找附近、介紹這裡時用）。
+/// 問小憶。lat/lng 是目前位置；history 是最近幾輪對話（讓指代解得開）。
 Future<GuideReply> askGuide(
   Dio dio,
   String message, {
   double? lat,
   double? lng,
+  List<GuideMessage> history = const [],
 }) async {
+  // 只送最近 5 輪（10 則），讓後端有記憶又不爆 token。
+  final recent =
+      history.length > 10 ? history.sublist(history.length - 10) : history;
   final res = await dio.post(
     '/guide/ask',
-    data: {'message': message, 'lat': ?lat, 'lng': ?lng},
+    data: {
+      'message': message,
+      'lat': ?lat,
+      'lng': ?lng,
+      'history': [
+        for (final m in recent)
+          {'role': m.fromUser ? 'user' : 'guide', 'text': m.text},
+      ],
+    },
     options: Options(receiveTimeout: const Duration(seconds: 60)),
   );
   return GuideReply.fromJson(res.data as Map<String, dynamic>);

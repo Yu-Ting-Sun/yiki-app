@@ -61,6 +61,8 @@ class _GuidePageState extends ConsumerState<GuidePage> {
     text = text.trim();
     if (text.isEmpty || _busy) return;
     _inputController.clear();
+    // 這次送出前的對話當作記憶（不含正要送的這句）
+    final history = List<GuideMessage>.from(_messages);
     setState(() {
       _messages.add(GuideMessage(fromUser: true, text: text));
       _busy = true;
@@ -71,7 +73,8 @@ class _GuidePageState extends ConsumerState<GuidePage> {
     final loc = await _currentLatLng();
     try {
       final reply = await askGuide(
-        ref.read(dioProvider), text, lat: loc.lat, lng: loc.lng);
+        ref.read(dioProvider), text,
+        lat: loc.lat, lng: loc.lng, history: history);
       if (!mounted) return;
       _avatarKey.currentState?.setThinking(false);
       _react(reply.action);
