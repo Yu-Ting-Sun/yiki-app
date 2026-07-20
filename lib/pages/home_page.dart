@@ -30,6 +30,11 @@ class HomePage extends StatelessWidget {
             label: '旅程',
           ),
           NavigationDestination(
+            icon: Icon(Icons.auto_awesome_outlined),
+            selectedIcon: Icon(Icons.auto_awesome),
+            label: '精靈',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.filter_frames_outlined),
             selectedIcon: Icon(Icons.filter_frames),
             label: '相框',

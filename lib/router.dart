@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import 'pages/frame_page.dart';
+import 'pages/guide_page.dart';
 import 'pages/home_page.dart';
 import 'pages/spots_page.dart';
 import 'pages/story_edit_page.dart';
@@ -8,7 +9,7 @@ import 'pages/tracking_page.dart';
 import 'pages/trip_detail_page.dart';
 import 'pages/trips_page.dart';
 
-/// 三個底部 tab（記錄 / 旅程 / 相框）各是一個 branch，
+/// 四個底部 tab（記錄 / 旅程 / 精靈 / 相框）各是一個 branch，
 /// 旅程詳情、遊記編輯、景點推薦掛在旅程 branch 下。
 final router = GoRouter(
   initialLocation: '/tracking',
@@ -51,6 +52,14 @@ final router = GoRouter(
                   ],
                 ),
               ],
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/guide',
+              builder: (context, state) => const GuidePage(),
             ),
           ],
         ),
