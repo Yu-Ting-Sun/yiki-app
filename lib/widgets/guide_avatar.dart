@@ -244,12 +244,11 @@ class GuideAvatarState extends State<GuideAvatar>
             ),
           ),
 
-        // 摸頭熱區（頭頂到臉部上緣）
-        Positioned(
-          top: 0,
+        // 摸頭熱區（頭頂到上半身；opaque 讓透明區域也能點）
+        Positioned.fill(
           child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: _onHeadPat,
-            child: SizedBox(width: bodyD, height: bodyD * 0.5),
           ),
         ),
       ],
