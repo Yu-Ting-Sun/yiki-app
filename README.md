@@ -21,7 +21,9 @@
 
 ```powershell
 cd ..\m55m1_dual_model_poc\backend
-$env:OPENAI_API_KEY = "sk-..."   # LLM 用(遊記/景點介紹);沒 key 可改 $env:LLM_MOCK = "1"
+$env:OPENAI_API_KEY = "sk-..."       # LLM 用(遊記/景點介紹);沒 key 可改 $env:LLM_MOCK = "1"
+$env:FOURSQUARE_API_KEY = "..."      # 選填:設了就用 Foursquare 查 POI(快又穩);
+                                     # 沒設就退回免費的 Overpass(偶爾塞車)
 C:\Users\antia\anaconda3\envs\m55m1_face\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
