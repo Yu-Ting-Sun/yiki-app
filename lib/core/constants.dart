@@ -8,11 +8,14 @@
 /// - Android 模擬器 → http://10.0.2.2:8000
 /// - Chrome / Windows 桌面 → http://127.0.0.1:8000
 class AppConstants {
-  // 外出測試用：Cloudflare 快速通道（cloudflared tunnel --url http://127.0.0.1:8000）。
-  // ⚠ 通道每次重開網址都會變，重開後要回來改這裡。
-  // 回實驗室/家裡改回區網 IP 比較快，例如 'http://192.168.208.3:8000'。
+  // Cloudflare 快速通道（使用者選擇；手機端不用裝任何東西）。
+  // 注意：重啟「後端」不會換網址（通道自己會重連 8000）；
+  // 只有「通道程式或電腦重開」才會換，屆時重跑
+  //   cloudflared tunnel --url http://127.0.0.1:8000
+  // 並回來改這行。備援：Tailscale 仍裝著，改回
+  // 'http://100.74.148.113:8000'（手機 Tailscale 開著）即可。
   static const String apiBaseUrl =
-      'https://identifier-tex-penguin-exhibit.trycloudflare.com';
+      'https://symbol-launches-meals-tutorial.trycloudflare.com';
 
   static const String appName = '憶起';
 

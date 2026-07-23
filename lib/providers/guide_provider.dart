@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../models/spot.dart';
@@ -59,4 +61,17 @@ Future<GuideReply> askGuide(
     options: Options(receiveTimeout: const Duration(seconds: 60)),
   );
   return GuideReply.fromJson(res.data as Map<String, dynamic>);
+}
+
+/// 小憶開口說話：文字 → mp3 bytes（後端 edge-tts，與相框同一個聲音）。
+Future<Uint8List> fetchSpeech(Dio dio, String text) async {
+  final res = await dio.post(
+    '/guide/speak',
+    data: {'text': text},
+    options: Options(
+      responseType: ResponseType.bytes,
+      receiveTimeout: const Duration(seconds: 30),
+    ),
+  );
+  return Uint8List.fromList(res.data as List<int>);
 }

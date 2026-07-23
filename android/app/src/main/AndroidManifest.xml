@@ -3,6 +3,8 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 對小憶說話（speech_to_text） -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="憶起"
         android:name="${applicationName}"
@@ -54,6 +56,10 @@
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="https"/>
+        </intent>
+        <!-- speech_to_text：Android 11+ 查詢語音辨識服務 -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 </manifest>

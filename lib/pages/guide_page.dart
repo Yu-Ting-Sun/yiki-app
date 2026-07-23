@@ -1,6 +1,8 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../core/api_client.dart';
 import '../core/maps_launcher.dart';
@@ -26,11 +28,82 @@ class _GuidePageState extends ConsumerState<GuidePage> {
   bool _busy = false;
   String _bubble = '嗨～我是小憶，你的旅遊小精靈！\n想去哪走走，問我就對了 🌿';
 
+  // 語音：對她說（STT）+ 她開口回（TTS 播放）
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  final AudioPlayer _player = AudioPlayer();
+  bool _speechReady = false;
+  bool _listening = false;
+  bool _voiceOn = true; // 小憶用說的回答（右上角可關）
+
+  @override
+  void initState() {
+    super.initState();
+    _player.onPlayerComplete.listen((_) {
+      _avatarKey.currentState?.setTalking(false);
+    });
+  }
+
   @override
   void dispose() {
+    _speech.stop();
+    _player.dispose();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 麥克風：點一下開始聽，講完（或再點一下）自動送出。
+  Future<void> _toggleListening() async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (_listening) {
+      await _speech.stop();
+      setState(() => _listening = false);
+      return;
+    }
+    if (!_speechReady) {
+      _speechReady = await _speech.initialize(
+        onStatus: (s) {
+          if ((s == 'done' || s == 'notListening') && mounted) {
+            setState(() => _listening = false);
+          }
+        },
+        onError: (_) {
+          if (mounted) setState(() => _listening = false);
+        },
+      );
+      if (!_speechReady) {
+        messenger.showSnackBar(const SnackBar(
+          content: Text('這支手機沒有可用的語音辨識服務，或麥克風權限被拒'),
+        ));
+        return;
+      }
+    }
+    setState(() => _listening = true);
+    await _speech.listen(
+      listenOptions: stt.SpeechListenOptions(
+          localeId: 'zh_TW', partialResults: true),
+      onResult: (r) {
+        _inputController.text = r.recognizedWords; // 即時顯示聽到什麼
+        if (r.finalResult && r.recognizedWords.trim().isNotEmpty) {
+          setState(() => _listening = false);
+          _send(r.recognizedWords);
+        }
+      },
+    );
+  }
+
+  /// 小憶開口：抓 TTS 播放，嘴巴動畫跟著實際語音長度走。
+  Future<void> _speak(String text) async {
+    if (!_voiceOn || text.isEmpty) return;
+    try {
+      final bytes = await fetchSpeech(ref.read(dioProvider), text);
+      if (!mounted) return;
+      _avatarKey.currentState?.setTalking(true);
+      await _player.play(BytesSource(bytes));
+    } catch (_) {
+      // 語音是加分項，失敗就安靜地只顯示文字
+      _avatarKey.currentState?.setTalking(false);
+    }
   }
 
   Future<({double? lat, double? lng})> _currentLatLng() async {
@@ -80,7 +153,7 @@ class _GuidePageState extends ConsumerState<GuidePage> {
         history: history);
       if (!mounted) return;
       _avatarKey.currentState?.setThinking(false);
-      _react(reply.action);
+      _react(reply.action, reply.reply);
       setState(() {
         _bubble = reply.reply;
         _messages.add(GuideMessage(
@@ -100,16 +173,19 @@ class _GuidePageState extends ConsumerState<GuidePage> {
     }
   }
 
-  /// 依後端動作標籤讓小憶做反應。
-  void _react(String action) {
+  /// 依後端動作標籤讓小憶做反應；語音開著就真的開口說。
+  void _react(String action, String reply) {
     final avatar = _avatarKey.currentState;
     if (avatar == null) return;
     if (action == 'wave') avatar.wave();
-    // 說話時嘴巴動一小段（依回覆長短）
-    avatar.setTalking(true);
-    Future.delayed(const Duration(milliseconds: 2600), () {
-      if (mounted) avatar.setTalking(false);
-    });
+    if (_voiceOn) {
+      _speak(reply); // 播放期間嘴巴動，播完自動停
+    } else {
+      avatar.setTalking(true);
+      Future.delayed(const Duration(milliseconds: 2600), () {
+        if (mounted) avatar.setTalking(false);
+      });
+    }
   }
 
   void _scrollToBottom() {
@@ -128,7 +204,22 @@ class _GuidePageState extends ConsumerState<GuidePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('導遊精靈 小憶')),
+      appBar: AppBar(
+        title: const Text('導遊精靈 小憶'),
+        actions: [
+          IconButton(
+            tooltip: _voiceOn ? '關閉語音回答' : '開啟語音回答',
+            icon: Icon(_voiceOn ? Icons.volume_up : Icons.volume_off),
+            onPressed: () {
+              setState(() => _voiceOn = !_voiceOn);
+              if (!_voiceOn) {
+                _player.stop();
+                _avatarKey.currentState?.setTalking(false);
+              }
+            },
+          ),
+        ],
+      ),
       body: Column(
         children: [
           // 上半：漸層背景 + 小憶 + 講話泡泡
@@ -199,13 +290,21 @@ class _GuidePageState extends ConsumerState<GuidePage> {
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
               child: Row(
                 children: [
+                  // 🎤 對小憶說話（聽寫中變紅、輸入框即時顯示聽到的字）
+                  IconButton.filledTonal(
+                    tooltip: _listening ? '停止' : '按著說話',
+                    icon: Icon(_listening ? Icons.mic : Icons.mic_none),
+                    color: _listening ? Colors.red : null,
+                    onPressed: _busy ? null : _toggleListening,
+                  ),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: TextField(
                       controller: _inputController,
                       textInputAction: TextInputAction.send,
                       onSubmitted: _send,
                       decoration: InputDecoration(
-                        hintText: '問問小憶…',
+                        hintText: _listening ? '我在聽…' : '問問小憶…',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
                         ),
