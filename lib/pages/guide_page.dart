@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import '../core/api_client.dart';
 import '../core/maps_launcher.dart';
 import '../models/spot.dart';
+import '../providers/frame_provider.dart';
 import '../providers/guide_provider.dart';
 import '../widgets/guide_avatar.dart';
 
@@ -74,7 +75,9 @@ class _GuidePageState extends ConsumerState<GuidePage> {
     try {
       final reply = await askGuide(
         ref.read(dioProvider), text,
-        lat: loc.lat, lng: loc.lng, history: history);
+        lat: loc.lat, lng: loc.lng,
+        frameId: ref.read(frameProvider).frameId,
+        history: history);
       if (!mounted) return;
       _avatarKey.currentState?.setThinking(false);
       _react(reply.action);

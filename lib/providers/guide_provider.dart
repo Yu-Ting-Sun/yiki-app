@@ -38,6 +38,7 @@ Future<GuideReply> askGuide(
   String message, {
   double? lat,
   double? lng,
+  int? frameId,
   List<GuideMessage> history = const [],
 }) async {
   // 只送最近 5 輪（10 則），讓後端有記憶又不爆 token。
@@ -49,6 +50,7 @@ Future<GuideReply> askGuide(
       'message': message,
       'lat': ?lat,
       'lng': ?lng,
+      'frame_id': ?frameId, // 配對中的相框（「幫我同步相框」工具用）
       'history': [
         for (final m in recent)
           {'role': m.fromUser ? 'user' : 'guide', 'text': m.text},
