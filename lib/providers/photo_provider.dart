@@ -21,3 +21,8 @@ Future<void> uploadTripPhoto({
   });
   await dio.post('/trips/$tripId/photos', data: form);
 }
+
+/// 刪除一張照片（DELETE /photos/{id}）。
+Future<void> deleteTripPhoto(Dio dio, int photoId) async {
+  await dio.delete('/photos/$photoId');
+}

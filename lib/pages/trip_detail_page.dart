@@ -369,6 +369,54 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
     }
   }
 
+  /// 長按縮圖 → 確認 → DELETE /photos/{id} → 重抓旅程。
+  Future<void> _confirmDelete(Photo photo) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('刪除這張照片？'),
+        content: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            photo.fullUrl,
+            height: 160,
+            fit: BoxFit.cover,
+            errorBuilder: (c, e, st) => const SizedBox(
+              height: 80,
+              child: Center(child: Icon(Icons.broken_image)),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('刪除'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final tripId = widget.trip.summary.id;
+    try {
+      await deleteTripPhoto(ref.read(dioProvider), photo.id);
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('刪除失敗，請再試一次')));
+      return;
+    }
+    ref.invalidate(tripDetailProvider(tripId));
+    ref.invalidate(tripsProvider); // 封面/張數變了
+    messenger.showSnackBar(const SnackBar(content: Text('照片已刪除 🗑️')));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -380,6 +428,14 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
         Row(
           children: [
             Text('照片', style: theme.textTheme.titleMedium),
+            if (photos.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Text(
+                '長按可刪除',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.outline),
+              ),
+            ],
             const Spacer(),
             TextButton.icon(
               onPressed: _uploading ? null : _pickAndUpload,
@@ -416,6 +472,7 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
                 final photo = photos[i];
                 return GestureDetector(
                   onTap: () => _showPhotoViewer(context, photo),
+                  onLongPress: () => _confirmDelete(photo),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.network(

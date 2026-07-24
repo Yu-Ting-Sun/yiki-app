@@ -15,7 +15,7 @@ class AppConstants {
   // 並回來改這行。備援：Tailscale 仍裝著，改回
   // 'http://100.74.148.113:8000'（手機 Tailscale 開著）即可。
   static const String apiBaseUrl =
-      'https://symbol-launches-meals-tutorial.trycloudflare.com';
+      'http://100.74.148.113:8000';
 
   static const String appName = '憶起';
 
