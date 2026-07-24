@@ -186,6 +186,29 @@ class _DetailBody extends ConsumerWidget {
 
   const _DetailBody({required this.trip});
 
+  /// 編輯旅程標題 → PUT /trips/{id}/title。
+  Future<void> _editTitle(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final tripId = trip.summary.id;
+
+    final title = await showDialog<String>(
+      context: context,
+      builder: (_) => _TitleDialog(initial: trip.summary.title),
+    );
+    if (title == null) return; // 取消
+    try {
+      await ref.read(dioProvider).put(
+        '/trips/$tripId/title',
+        data: {'title': title},
+      );
+      ref.invalidate(tripDetailProvider(tripId));
+      ref.invalidate(tripsProvider); // 列表上的標題也變了
+      messenger.showSnackBar(const SnackBar(content: Text('標題已更新')));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
+  }
+
   /// 編輯參加者：從已註冊的「家人臉譜」勾選 → PUT /trips/{id}/members。
   /// 名字與臉譜同源，相框認出誰就播誰參加過的旅程。
   Future<void> _editMembers(BuildContext context, WidgetRef ref) async {
@@ -219,9 +242,21 @@ class _DetailBody extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          s.title.isEmpty ? '未命名旅程' : s.title,
-          style: theme.textTheme.headlineSmall,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                s.title.isEmpty ? '未命名旅程' : s.title,
+                style: theme.textTheme.headlineSmall,
+              ),
+            ),
+            IconButton(
+              onPressed: () => _editTitle(context, ref),
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              tooltip: '編輯標題',
+            ),
+          ],
         ),
         const SizedBox(height: 4),
         if (start != null) Text(DateFormat('yyyy/M/d HH:mm').format(start)),
@@ -698,6 +733,59 @@ class _Info extends StatelessWidget {
       children: [
         Text(value, style: Theme.of(context).textTheme.titleMedium),
         Text(label, style: Theme.of(context).textTheme.bodySmall),
+      ],
+    );
+  }
+}
+
+/// 編輯標題的對話框——自己持有 controller，關閉動畫期間 dispose 才安全。
+class _TitleDialog extends StatefulWidget {
+  final String initial;
+
+  const _TitleDialog({required this.initial});
+
+  @override
+  State<_TitleDialog> createState() => _TitleDialogState();
+}
+
+class _TitleDialogState extends State<_TitleDialog> {
+  late final TextEditingController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = TextEditingController(text: widget.initial);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final t = _c.text.trim();
+    if (t.isEmpty) return;
+    Navigator.pop(context, t);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('編輯旅程標題'),
+      content: TextField(
+        controller: _c,
+        autofocus: true,
+        maxLength: 50,
+        decoration: const InputDecoration(hintText: '例如：台南兩天一夜'),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('儲存')),
       ],
     );
   }

@@ -13,12 +13,16 @@ class FrameState {
   /// 後端目前可同步的旅程數（相框會整批同步全部旅程到 SD 卡）。
   final int tripCount;
 
+  /// 內容跟相框上次拉走的版本不一樣、真的需要同步的旅程數。
+  final int pendingCount;
+
   const FrameState({
     this.paired = false,
     this.frameId,
     this.name = '',
     this.lastSync,
     this.tripCount = 0,
+    this.pendingCount = 0,
   });
 }
 
@@ -63,6 +67,7 @@ class FrameNotifier extends Notifier<FrameState> {
       name: name,
       lastSync: _parseTime(res.data['last_sync']),
       tripCount: res.data['trip_count'] as int? ?? 0,
+      pendingCount: res.data['pending_count'] as int? ?? 0,
     );
   }
 
@@ -77,6 +82,7 @@ class FrameNotifier extends Notifier<FrameState> {
       name: res.data['name'] as String? ?? state.name,
       lastSync: _parseTime(res.data['last_sync']),
       tripCount: res.data['trip_count'] as int? ?? 0,
+      pendingCount: res.data['pending_count'] as int? ?? 0,
     );
   }
 

@@ -134,7 +134,13 @@ class _FramePageState extends ConsumerState<FramePage> {
                       : '還沒同步過',
                 ),
                 const Divider(),
-                _StatusRow(label: '可同步旅程', value: '${frame.tripCount} 趟'),
+                // 「待同步」= 內容跟相框上次拉走的版本不同的旅程（含新旅程）
+                _StatusRow(
+                  label: '待同步旅程',
+                  value: frame.pendingCount == 0
+                      ? '相框已是最新 ✓'
+                      : '${frame.pendingCount} 趟（共 ${frame.tripCount} 趟）',
+                ),
               ],
             ),
           ),
