@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import 'pages/avatar_stage_page.dart';
 import 'pages/frame_page.dart';
 import 'pages/guide_page.dart';
 import 'pages/home_page.dart';
@@ -14,6 +15,11 @@ import 'pages/trips_page.dart';
 final router = GoRouter(
   initialLocation: '/tracking',
   routes: [
+    // 影片攝影棚(隱藏頁,無底部導覽列):小憶分頁標題長按進入
+    GoRoute(
+      path: '/stage',
+      builder: (context, state) => const AvatarStagePage(),
+    ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, shell) => HomePage(shell: shell),
       branches: [

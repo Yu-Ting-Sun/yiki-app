@@ -2,6 +2,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../core/api_client.dart';
@@ -205,7 +206,11 @@ class _GuidePageState extends ConsumerState<GuidePage> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('導遊精靈 小憶'),
+        // 長按標題 → 影片攝影棚(綠幕小憶,拍競賽影片解說員用)
+        title: GestureDetector(
+          onLongPress: () => context.push('/stage'),
+          child: const Text('導遊精靈 小憶'),
+        ),
         actions: [
           IconButton(
             tooltip: _voiceOn ? '關閉語音回答' : '開啟語音回答',
