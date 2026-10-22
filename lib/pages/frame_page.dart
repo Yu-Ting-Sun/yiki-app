@@ -7,6 +7,7 @@ import '../core/api_client.dart';
 import '../providers/faces_provider.dart';
 import '../providers/frame_provider.dart';
 import '../providers/message_provider.dart';
+import '../providers/views_provider.dart';
 import '../widgets/message_list.dart';
 
 /// 相框同步頁：未配對 → 輸入 6 位配對碼；已配對 → 顯示相框狀態。
@@ -184,7 +185,79 @@ class _FramePageState extends ConsumerState<FramePage> {
         const SizedBox(height: 24),
         const _MessagesSection(),
         const SizedBox(height: 24),
+        const _ViewsSection(),
+        const SizedBox(height: 24),
         const _FacesSection(),
+      ],
+    );
+  }
+}
+
+/// 觀看回饋：相框認出誰站在前面時，記下他在看哪本相簿。
+/// 同一人同一本 10 分鐘內只記一次。
+class _ViewsSection extends ConsumerWidget {
+  const _ViewsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final views = ref.watch(viewsProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('最近誰看了相框', style: theme.textTheme.titleMedium),
+            const Spacer(),
+            IconButton(
+              tooltip: '重新整理',
+              onPressed: () => ref.invalidate(viewsProvider),
+              icon: const Icon(Icons.refresh, size: 20),
+            ),
+          ],
+        ),
+        views.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(8),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          error: (e, _) => Text(
+            friendlyError(e),
+            style: theme.textTheme.bodySmall,
+          ),
+          data: (list) => list.isEmpty
+              ? Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    '還沒有觀看紀錄。家人站到相框前被認出來時，'
+                    '這裡會記下他正在看哪趟旅程。',
+                  ),
+                )
+              : Card(
+                  child: Column(
+                    children: [
+                      for (final v in list)
+                        ListTile(
+                          dense: true,
+                          leading: const Icon(Icons.visibility_outlined),
+                          title: Text(
+                            '${v.user} 看了「${v.tripTitle.isEmpty ? '旅程相簿' : v.tripTitle}」',
+                          ),
+                          subtitle: v.createdAt == null
+                              ? null
+                              : Text(DateFormat('M/d HH:mm')
+                                  .format(v.createdAt!.toLocal())),
+                        ),
+                    ],
+                  ),
+                ),
+        ),
       ],
     );
   }
@@ -293,7 +366,7 @@ class _SyncNowButtonState extends ConsumerState<_SyncNowButton> {
 
 /// 新增家人 dialog：自己持有 TextEditingController（在這裡 dispose，
 /// 避免外層在關閉動畫還沒跑完時就把 controller 釋放掉）。
-/// 回傳 (名字, 自拍來源)；取消回 null。
+/// 回傳 (名字, 自拍來源)；來源 null = 用相框鏡頭註冊；取消回 null。
 class _AddFaceDialog extends StatefulWidget {
   const _AddFaceDialog();
 
@@ -310,7 +383,7 @@ class _AddFaceDialogState extends State<_AddFaceDialog> {
     super.dispose();
   }
 
-  void _submit(ImageSource source) {
+  void _submit(ImageSource? source) {
     Navigator.pop(context, (_controller.text.trim(), source));
   }
 
@@ -329,6 +402,7 @@ class _AddFaceDialogState extends State<_AddFaceDialog> {
           helperMaxLines: 3,
         ),
       ),
+      actionsOverflowButtonSpacing: 4,
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
@@ -339,10 +413,16 @@ class _AddFaceDialogState extends State<_AddFaceDialog> {
           icon: const Icon(Icons.photo_library, size: 18),
           label: const Text('選自拍'),
         ),
-        FilledButton.icon(
+        OutlinedButton.icon(
           onPressed: () => _submit(ImageSource.camera),
           icon: const Icon(Icons.camera_alt, size: 18),
           label: const Text('拍自拍'),
+        ),
+        // 最準：用辨識時同一支鏡頭拍（自拍跟相框畫面差很多）
+        FilledButton.icon(
+          onPressed: () => _submit(null),
+          icon: const Icon(Icons.filter_frames, size: 18),
+          label: const Text('用相框鏡頭（最準）'),
         ),
       ],
     );
@@ -365,7 +445,7 @@ class _FacesSectionState extends ConsumerState<_FacesSection> {
     final messenger = ScaffoldMessenger.of(context);
 
     // 1. 問名字 + 選來源（controller 生命週期由 dialog widget 自己管）
-    final result = await showDialog<(String, ImageSource)>(
+    final result = await showDialog<(String, ImageSource?)>(
       context: context,
       builder: (_) => const _AddFaceDialog(),
     );
@@ -375,6 +455,10 @@ class _FacesSectionState extends ConsumerState<_FacesSection> {
       messenger.showSnackBar(const SnackBar(
         content: Text('名字只能用英數字、底線、連字號（1-23 字元）'),
       ));
+      return;
+    }
+    if (source == null) {
+      await _cameraEnroll(label);
       return;
     }
 
@@ -413,6 +497,49 @@ class _FacesSectionState extends ConsumerState<_FacesSection> {
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
+  }
+
+  /// 請相框用鏡頭幫 [label] 註冊：新家人，或替已有的人補相框照片。
+  Future<void> _cameraEnroll(String label) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final frameId = ref.read(frameProvider).frameId;
+    if (frameId == null) return;
+    try {
+      await requestCameraEnroll(ref.read(dioProvider), frameId, label);
+      messenger.showSnackBar(SnackBar(
+        content: Text('請「$label」站到相框前看著鏡頭。相框幾秒內會開始拍，'
+            '右邊顯示 Enroll 1/8…，拍完就認得了 👀'),
+        duration: const Duration(seconds: 8),
+      ));
+      // 拍完相框會回報張數；稍後重抓清單就看得到「相框 8」。
+      Future.delayed(const Duration(seconds: 40), () {
+        if (mounted) ref.invalidate(facesProvider);
+      });
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
+  }
+
+  Future<void> _confirmCameraEnroll(FaceInfo face) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('用相框鏡頭幫「${face.label}」補拍？'),
+        content: const Text('相框鏡頭拍的照片跟辨識時的畫面一樣，'
+            '比手機自拍準很多。按下後請本人站到相框前。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('開始'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await _cameraEnroll(face.label);
   }
 
   Future<void> _removeFace(FaceInfo face) async {
@@ -499,7 +626,9 @@ class _FacesSectionState extends ConsumerState<_FacesSection> {
                     for (final f in list)
                       InputChip(
                         avatar: const Icon(Icons.face, size: 18),
-                        label: Text('${f.label}（${f.photoCount} 張）'),
+                        label: Text('${f.label}（${f.sourcesText}）'),
+                        tooltip: '點一下：用相框鏡頭補拍',
+                        onPressed: () => _confirmCameraEnroll(f),
                         onDeleted: () => _removeFace(f),
                       ),
                   ],
@@ -507,7 +636,8 @@ class _FacesSectionState extends ConsumerState<_FacesSection> {
         ),
         const SizedBox(height: 4),
         Text(
-          '名字需與旅程「參加者」一致；新增或刪除後，相框同步＋重開機才生效',
+          '名字需與旅程「參加者」一致。點名字可用相框鏡頭補拍（最準，'
+          '幾秒內生效）；自拍要相框同步＋重開機才生效',
           style: theme.textTheme.bodySmall,
         ),
       ],
