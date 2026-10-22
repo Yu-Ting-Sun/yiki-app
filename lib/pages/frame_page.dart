@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import '../core/api_client.dart';
 import '../providers/faces_provider.dart';
 import '../providers/frame_provider.dart';
+import '../providers/message_provider.dart';
+import '../widgets/message_list.dart';
 
 /// 相框同步頁：未配對 → 輸入 6 位配對碼；已配對 → 顯示相框狀態。
 /// 推播在旅程詳情頁的「推播到相框」。
@@ -180,7 +182,61 @@ class _FramePageState extends ConsumerState<FramePage> {
           ],
         ),
         const SizedBox(height: 24),
+        const _MessagesSection(),
+        const SizedBox(height: 24),
         const _FacesSection(),
+      ],
+    );
+  }
+}
+
+/// 相框收到的全部留言（新的在前）。個別旅程的留言也會出現在那趟的詳情頁。
+class _MessagesSection extends ConsumerWidget {
+  const _MessagesSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final messages = ref.watch(messagesProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('長輩的留言', style: theme.textTheme.titleMedium),
+            const Spacer(),
+            IconButton(
+              tooltip: '重新整理',
+              onPressed: () => ref.invalidate(messagesProvider),
+              icon: const Icon(Icons.refresh, size: 20),
+            ),
+          ],
+        ),
+        messages.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(8),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          error: (e, _) => Text(
+            friendlyError(e),
+            style: theme.textTheme.bodySmall,
+          ),
+          data: (list) => list.isEmpty
+              ? Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    '還沒有留言。長輩按著相框的按鈕說「小憶，跟女兒說…」，'
+                    '話就會留在這裡，也聽得到他的聲音。',
+                  ),
+                )
+              : MessageList(messages: list),
+        ),
       ],
     );
   }

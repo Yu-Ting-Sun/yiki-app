@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../core/api_client.dart';
+import '../providers/message_provider.dart';
+import '../widgets/message_list.dart';
 import '../core/photo_exif.dart';
 import '../models/photo.dart';
 import '../models/trip.dart';
@@ -327,8 +329,44 @@ class _DetailBody extends ConsumerWidget {
         _PhotosSection(trip: trip),
         const SizedBox(height: 16),
         _StorySection(trip: trip),
+        const SizedBox(height: 16),
+        _FrameMessagesSection(tripId: s.id),
         const SizedBox(height: 32),
       ],
+    );
+  }
+}
+
+/// 相框留言：長輩看著這趟的照片對小憶說的話（相框錄的原音可以播）。
+/// 沒有留言就整個區塊不出現，免得每趟都多一塊空白。
+class _FrameMessagesSection extends ConsumerWidget {
+  final int tripId;
+
+  const _FrameMessagesSection({required this.tripId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final messages = ref.watch(tripMessagesProvider(tripId));
+
+    return messages.maybeWhen(
+      data: (list) => list.isEmpty
+          ? const SizedBox.shrink()
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.record_voice_over,
+                        size: 18, color: theme.colorScheme.primary),
+                    const SizedBox(width: 6),
+                    Text('相框留言', style: theme.textTheme.titleMedium),
+                  ],
+                ),
+                MessageList(messages: list, showAlbum: false),
+              ],
+            ),
+      orElse: () => const SizedBox.shrink(),
     );
   }
 }
